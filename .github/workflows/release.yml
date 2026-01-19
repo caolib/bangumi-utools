@@ -1,0 +1,105 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "*"
+
+jobs:
+    release:
+        runs-on: windows-latest
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Get version from tag
+              id: get_version
+              shell: pwsh
+              run: |
+                  $tag = $env:GITHUB_REF -replace 'refs/tags/', ''
+                  # 去掉 v 前缀（如果有）
+                  $version = $tag -replace '^v', ''
+                  echo "version=$version" >> $env:GITHUB_OUTPUT
+                  echo "tag=$tag" >> $env:GITHUB_OUTPUT
+                  echo "Version: $version (Tag: $tag)"
+
+            - name: Read release notes
+              id: release_notes
+              shell: pwsh
+              run: |
+                  $body = Get-Content -Raw -Path "docs/RELEASE.md" -ErrorAction SilentlyContinue
+                  if (-not $body) { 
+                    $body = "Release notes not found." 
+                  }
+                  # 转义特殊字符
+                  $body = $body -replace "'", "''"
+                  # 使用 heredoc 语法
+                  $heredoc = "body<<EOF`n$body`nEOF"
+                  Add-Content -Path $env:GITHUB_OUTPUT -Value $heredoc
+
+            - name: Find installation file
+              id: find_file
+              shell: pwsh
+              run: |
+                  $version = "${{ steps.get_version.outputs.version }}"
+                  # 尝试 .upxs 和 .upx 两种扩展名
+                  $fileNames = @(
+                    "git commit helper-$version.upxs",
+                    "git commit helper-$version.upx"
+                  )
+                  # 在项目根目录的 build 文件夹中查找
+                  $basePath = "build"
+
+                  $foundFile = $null
+                  foreach ($fileName in $fileNames) {
+                    $filePath = Join-Path $basePath $fileName
+                    Write-Host "Looking for: $filePath"
+                    
+                    if (Test-Path $filePath) {
+                      Write-Host "✅ Found: $filePath"
+                      # 转换为相对路径（使用正斜杠）
+                      $relativePath = "build/$fileName"
+                      $foundFile = @{
+                        path = $relativePath
+                        name = $fileName
+                      }
+                      break
+                    }
+                  }
+
+                  if ($foundFile) {
+                    echo "file_path=$($foundFile.path)" >> $env:GITHUB_OUTPUT
+                    echo "file_name=$($foundFile.name)" >> $env:GITHUB_OUTPUT
+                    echo "found=true" >> $env:GITHUB_OUTPUT
+                    Write-Host "Output file_path: $($foundFile.path)"
+                  } else {
+                    Write-Host "❌ File not found in: $basePath"
+                    Write-Host "Tried files:"
+                    $fileNames | ForEach-Object { Write-Host "  - $_" }
+                    Write-Host "Please make sure the file exists in the 'build' folder of your repository"
+                    echo "found=false" >> $env:GITHUB_OUTPUT
+                    exit 1
+                  }
+
+            - name: Create Release
+              uses: softprops/action-gh-release@v1
+              if: steps.find_file.outputs.found == 'true'
+              with:
+                  name: Release ${{ steps.get_version.outputs.tag }}
+                  body: ${{ steps.release_notes.outputs.body }}
+                  draft: false
+                  prerelease: false
+                  files: |
+                      ${{ steps.find_file.outputs.file_path }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Upload artifact for verification
+              if: steps.find_file.outputs.found == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: installation-file
+                  path: ${{ steps.find_file.outputs.file_path }}

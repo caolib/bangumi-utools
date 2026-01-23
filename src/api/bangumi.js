@@ -1,7 +1,8 @@
 const API_BASE = 'https://api.bgm.tv';
+const API_NEXT = 'https://next.bgm.tv';
 
-async function fetchAPI(endpoint) {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+async function fetchAPI(endpoint, apiBase = API_BASE) {
+    const res = await fetch(`${apiBase}${endpoint}`, {
         headers: {
             'Accept': 'application/json'
         }
@@ -25,4 +26,14 @@ export function getCalendar() {
  */
 export function getSubject(id) {
     return fetchAPI(`/v0/subjects/${id}`);
+}
+
+/**
+ * 获取条目评论
+ * @param {number} id Subject ID
+ * @param {number} limit 
+ * @param {number} offset 
+ */
+export function getComments(id, limit = 20, offset = 0) {
+    return fetchAPI(`/p1/subjects/${id}/comments?limit=${limit}&offset=${offset}`, API_NEXT);
 }

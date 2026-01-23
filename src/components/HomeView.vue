@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { getCalendar, getSubject } from '../api/bangumi';
+import { getCalendar, getSubject, getComments } from '../api/bangumi';
 import AnimeCard from './AnimeCard.vue';
 
 const loading = ref(true);
@@ -10,6 +10,24 @@ const selectedItem = ref(null);
 const isDetailPage = ref(false);
 const detailLoading = ref(false);
 const isSummaryExpanded = ref(false);
+
+// Comments state
+const comments = ref([]);
+const commentsTotal = ref(0);
+const commentsLoading = ref(false);
+const commentsOffset = ref(0);
+const commentsLimit = 20;
+
+const formatTime = (ts) => {
+    if (!ts) return '';
+    const now = Date.now() / 1000;
+    const diff = now - ts;
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+    if (diff < 2592000) return `${Math.floor(diff / 86400)}天前`;
+    return new Date(ts * 1000).toLocaleDateString().replace(/\//g, '-');
+};
 
 const calendarMap = computed(() => {
     const map = {};
@@ -64,10 +82,41 @@ const fetchInit = async () => {
     }
 };
 
+const fetchComments = async (isLoadMore = false) => {
+    if (!selectedItem.value) return;
+    commentsLoading.value = true;
+    try {
+        const offset = isLoadMore ? commentsOffset.value : 0;
+        // getComments is defined in api
+        const res = await getComments(selectedItem.value.id, commentsLimit, offset);
+        if (res && res.data) {
+            if (isLoadMore) {
+                comments.value = [...comments.value, ...res.data];
+            } else {
+                comments.value = res.data;
+            }
+            commentsTotal.value = res.total || 0;
+            commentsOffset.value = offset + res.data.length;
+        }
+    } catch (e) {
+        console.error("Failed to fetch comments", e);
+    } finally {
+        commentsLoading.value = false;
+    }
+};
+
 const openDetail = async (item) => {
     selectedItem.value = item;
     isDetailPage.value = true;
     detailLoading.value = true;
+
+    // Reset comments
+    comments.value = [];
+    commentsTotal.value = 0;
+    commentsOffset.value = 0;
+
+    // Fetch comments asynchronously without blocking UI
+    fetchComments();
 
     try {
         const detail = await getSubject(item.id);
@@ -212,6 +261,38 @@ onMounted(() => {
                             <div class="summary-toggle" v-if="selectedItem.summary && selectedItem.summary.length > 100"
                                 @click="isSummaryExpanded = !isSummaryExpanded">
                                 {{ isSummaryExpanded ? '收起' : '展开更多' }}
+                            </div>
+                        </div>
+
+                        <div class="comments-section" v-if="comments.length > 0 || commentsLoading">
+                            <h4 class="section-title">评论 <span class="count-badge" v-if="commentsTotal">({{
+                                commentsTotal }})</span></h4>
+
+                            <div class="comments-list">
+                                <div class="comment-item" v-for="comment in comments" :key="comment.id">
+                                    <div class="avatar-col">
+                                        <img :src="comment.user?.avatar?.medium || comment.user?.avatar?.small"
+                                            class="avatar" loading="lazy">
+                                    </div>
+                                    <div class="comment-content">
+                                        <div class="comment-top">
+                                            <div class="user-info">
+                                                <span class="nickname">{{ comment.user?.nickname ||
+                                                    comment.user?.username }}</span>
+                                                <span class="rating-label" v-if="comment.rate">★{{ comment.rate
+                                                }}</span>
+                                            </div>
+                                            <span class="comment-date">{{ formatTime(comment.updatedAt) }}</span>
+                                        </div>
+                                        <div class="comment-text">{{ comment.comment }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="load-more-container" v-if="comments.length < commentsTotal">
+                                <button class="load-more-btn" @click="fetchComments(true)" :disabled="commentsLoading">
+                                    {{ commentsLoading ? '加载中...' : '加载更多' }}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -363,12 +444,8 @@ onMounted(() => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    position: sticky;
-    top: 0;
-    padding: 8px 0;
     background: var(--bg-body);
     z-index: 5;
-    margin-bottom: 8px;
 }
 
 .nav-btn {
@@ -486,7 +563,6 @@ onMounted(() => {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-    margin-bottom: 16px;
 }
 
 .tag-pill {
@@ -560,9 +636,9 @@ onMounted(() => {
     display: flex;
     align-items: flex-end;
     gap: 24px;
-    /* Removed margin-top: auto to reduce whitespace if content above is short, 
-       but added padding-top to separate from tags */
-    padding-top: 2px;
+    margin-top: auto;
+    /* Push to bottom */
+    padding-top: 12px;
     flex-wrap: wrap;
 }
 
@@ -727,6 +803,149 @@ onMounted(() => {
     color: var(--text-main);
 }
 
+.comments-section {
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.count-badge {
+    color: var(--text-sub);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.comments-list {
+    display: flex;
+    flex-direction: row;
+    /* Changed from column to row */
+    flex-wrap: wrap;
+    /* Allow wrapping */
+    gap: 10px;
+}
+
+.comment-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-body);
+    /* Bubble background */
+    border-radius: 16px;
+    border: none;
+    width: fit-content;
+    max-width: 100%;
+}
+
+.comment-item:last-child {
+    padding-bottom: 10px;
+    /* Reset padding override */
+    border-bottom: none;
+}
+
+.avatar-col {
+    flex-shrink: 0;
+}
+
+.avatar {
+    width: 32px;
+    /* Slightly smaller */
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.comment-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.comment-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.nickname {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-sub);
+    /* Weaken nickname focus as requested */
+}
+
+.comment-date {
+    font-size: 11px;
+    color: var(--text-sub);
+    opacity: 0.8;
+    margin-left: 5px;
+}
+
+.comment-text {
+    font-size: 14px;
+    /* Slightly larger text */
+    line-height: 1.4;
+    color: var(--text-main);
+    word-break: break-word;
+}
+
+.rating-label {
+    font-size: 10px;
+    color: #fff;
+    background: #ffd700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.2;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] .rating-label {
+    color: #000;
+}
+
+.load-more-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.load-more-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--primary);
+    padding: 8px 24px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.load-more-btn:hover:not(:disabled) {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.load-more-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
 /* Removed old rating chart styles */
 
 .summary-text {
@@ -753,5 +972,9 @@ onMounted(() => {
 .slide-fade-leave-to {
     opacity: 0;
     transform: translateY(6px);
+}
+
+button {
+    line-height: 1.5;
 }
 </style>

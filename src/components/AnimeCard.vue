@@ -19,7 +19,7 @@ const getCover = (images) => {
         <div class="cover-wrapper">
             <img :src="getCover(item.images)" loading="lazy" alt="cover" />
             <div class="rating" v-if="item.rating && item.rating.score">
-                ★ {{ item.rating.score }}
+                {{ item.rating.score }}
             </div>
         </div>
         <div class="content">
@@ -78,15 +78,29 @@ const getCover = (images) => {
 
 .rating {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0, 0, 0, 0.65);
-    color: #ffd700;
-    font-size: 11px;
+    top: 6px;
+    right: 6px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 12px;
     font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    backdrop-filter: blur(4px);
+    padding: 3px 8px;
+    /* Slightly larger padding */
+    border-radius: 12px;
+    /* Pill shape */
+    backdrop-filter: blur(8px);
+    /* stronger blur */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    line-height: 1;
+}
+
+.rating::before {
+    content: '★';
+    color: #fff;
+    font-size: 11px;
 }
 
 .content {

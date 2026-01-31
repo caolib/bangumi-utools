@@ -15,15 +15,16 @@ const getCover = (images) => {
 </script>
 
 <template>
-    <div class="card" @click="emit('click', item)">
+    <div class="card" @click="(e) => emit('click', item, e)">
         <div class="cover-wrapper">
-            <img :src="getCover(item.images)" loading="lazy" alt="cover" />
+            <img :src="getCover(item.images)" loading="lazy" alt="cover" :data-flip-id="'img-' + item.id" />
             <div class="rating" v-if="item.rating && item.rating.score">
                 {{ item.rating.score }}
             </div>
         </div>
         <div class="content">
-            <h3 class="title" :title="item.name_cn || item.name">{{ item.name_cn || item.name }}</h3>
+            <h3 class="title" :title="item.name_cn || item.name" :data-flip-id="'txt-' + item.id">{{ item.name_cn ||
+                item.name }}</h3>
             <div class="meta">
                 <span class="date" v-if="item.air_date">{{ item.air_date }}</span>
                 <span class="count" v-if="item.collection?.doing">{{ item.collection.doing }} 人在看</span>

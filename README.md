@@ -1,23 +1,4 @@
-# uTools 插件开发模板
-
-此仓库已被简化为一个通用的 uTools 插件模板。保留的通用功能：
-
-- 深/浅/跟随系统主题支持（基于 Ant Design 主题切换）
-- 配置持久化（使用 `window.utools.dbStorage`，见 `src/utils/store.js`）
-- 导入/导出配置的预加载 API（`public/preload/services.js`）
-
-快速开始：
-
-1. 编辑 `public/plugin.json` 中的 `features`，添加你的功能点（code/cmds/explain）。
-2. 在 `src/components/` 中实现你的页面和逻辑，`HomeView.vue` 为示例主页，`ConfigView.vue` 为示例配置页面。
-3. 如需文件读写或导入导出，使用 `window.services` 中提供的方法。
-4. 启动开发服务器：
-
-```pwsh
-pnpm dev
-```
-
-更多说明见项目内文件注释。
-
-
-
+<img width="1717" height="1180" alt="PixPin_2026-01-31_20-57-34" src="https://github.com/user-attachments/assets/23003770-10b2-489f-a46a-a0e2f4537a18" />
+<img width="1720" height="1197" alt="PixPin_2026-01-31_20-57-44" src="https://github.com/user-attachments/assets/b0a9fd7c-c39a-4e08-b1c9-8044c2a15ee4" />
+<img width="1716" height="1187" alt="PixPin_2026-01-31_20-58-06" src="https://github.com/user-attachments/assets/aba64907-d665-41fd-8e01-a047b82b9f27" />
+<img width="1694" height="1171" alt="PixPin_2026-01-31_20-58-17" src="https://github.com/user-attachments/assets/ede50881-0521-49e2-afb7-d16b3b31fd29" />

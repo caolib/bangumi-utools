@@ -42,6 +42,9 @@ const commentsLoading = ref(false);
 const commentsOffset = ref(0);
 const commentsLimit = 20;
 
+// 显示置顶按钮
+const showBackToTop = ref(false);
+
 const formatTime = (ts) => {
     if (!ts) return '';
     const now = Date.now() / 1000;
@@ -192,6 +195,7 @@ const fetchPopular = async (isLoadMore = false) => {
 
 // 监听主标签切换，按需加载数据
 watch(activeTab, (newTab) => {
+    showBackToTop.value = false;
     if (newTab === 'popular' && popularAnime.value.length === 0) {
         fetchPopular();
     }
@@ -220,7 +224,33 @@ const fetchComments = async (isLoadMore = false) => {
     }
 };
 
+const scrollToTop = () => {
+    const selector = isDetailPage.value ? '.detail-page' : '.content-area';
+    const container = document.querySelector(selector);
+    if (container) {
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    // showBackToTop.value = false;
+};
+
+let scrollTicking = false;
+
+const handleScroll = (e) => {
+    const scrollTop = e.target.scrollTop;
+    if (!scrollTicking) {
+        window.requestAnimationFrame(() => {
+            const shouldShow = scrollTop > 300;
+            if (showBackToTop.value !== shouldShow) {
+                showBackToTop.value = shouldShow;
+            }
+            scrollTicking = false;
+        });
+        scrollTicking = true;
+    }
+};
+
 const openDetail = async (item, event) => {
+    showBackToTop.value = false;
     // GSAP Flip: Capture state of the clicked item's image and title
     const imgId = `[data-flip-id="img-${item.id}"]`;
     const txtId = `[data-flip-id="txt-${item.id}"]`;
@@ -273,6 +303,7 @@ const openDetail = async (item, event) => {
 };
 
 const closeDetail = async () => {
+    showBackToTop.value = false;
     if (!selectedItem.value) {
         isDetailPage.value = false;
         return;
@@ -418,7 +449,7 @@ onUnmounted(() => {
         </div>
 
         <!-- 每日放送内容 -->
-        <main v-if="!isDetailPage && activeTab === 'calendar'" class="content-area">
+        <main v-if="!isDetailPage && activeTab === 'calendar'" class="content-area" @scroll="handleScroll">
             <div v-if="loading" class="loader-wrapper">
                 <div class="spinner"></div>
             </div>
@@ -434,7 +465,7 @@ onUnmounted(() => {
         </main>
 
         <!-- 热门番剧内容 -->
-        <main v-if="!isDetailPage && activeTab === 'popular'" class="content-area">
+        <main v-if="!isDetailPage && activeTab === 'popular'" class="content-area" @scroll="handleScroll">
             <div v-if="popularLoading && popularAnime.length === 0" class="loader-wrapper">
                 <div class="spinner"></div>
             </div>
@@ -458,7 +489,7 @@ onUnmounted(() => {
         </main>
 
         <!-- 搜索结果内容 -->
-        <main v-if="!isDetailPage && activeTab === 'search'" class="content-area">
+        <main v-if="!isDetailPage && activeTab === 'search'" class="content-area" @scroll="handleScroll">
             <div v-if="searchLoading && searchResults.length === 0" class="loader-wrapper">
                 <div class="spinner"></div>
             </div>
@@ -487,7 +518,7 @@ onUnmounted(() => {
         </main>
 
         <!-- 详情页 -->
-        <section v-if="isDetailPage" class="detail-page">
+        <section v-if="isDetailPage" class="detail-page" @scroll="handleScroll">
             <header class="detail-topbar">
                 <button class="nav-btn back" @click="closeDetail">
                     <span class="icon">➜</span> {{ getBackText() }}
@@ -603,6 +634,13 @@ onUnmounted(() => {
                 </div>
             </div>
         </section>
+        
+        <!-- Back to Top -->
+        <transition name="slide-fade">
+            <div v-if="showBackToTop" class="back-to-top" @click="scrollToTop" title="回到顶部">
+                <span class="icon">↑</span>
+            </div>
+        </transition>
     </div>
 </template>
 
@@ -1503,5 +1541,34 @@ onUnmounted(() => {
 
 button {
     line-height: 1.5;
+}
+
+.back-to-top {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 44px;
+    height: 44px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255, 71, 120, 0.4);
+    z-index: 1000;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+}
+
+.back-to-top:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(255, 71, 120, 0.6);
+}
+
+.back-to-top .icon {
+    font-size: 20px;
+    font-weight: bold;
 }
 </style>
